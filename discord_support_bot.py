@@ -72,7 +72,6 @@ async def on_ready():
                 support_channel = channel
                 channel_type = type(channel).__name__
                 print(f"✅ FOUND SUPPORT CHANNEL: {channel.name} (ID: {channel.id})")
-                print(f"   Channel type: {channel_type}")
                 break
         
         if not support_channel:
@@ -92,9 +91,7 @@ async def on_thread_update(before, after):
         thread_id = after.id
         thread_title = after.name
         
-        print(f"\n===== THREAD MARKED AS RESOLVED =====")
-        print(f"Thread Title: {thread_title}")
-        print(f"Thread ID: {thread_id}")
+        print(f"Thread marked as resolved: {thread_title} (ID: {thread_id})")
         
         # Get all current tags for the issue type
         issue_type = "Unknown"
@@ -120,12 +117,10 @@ async def on_thread_update(before, after):
                 'event_type': 'resolution'
             }
             
-            print(f"Sending resolution data to webhook: {json.dumps(data, indent=2)}")
             response = requests.post(WEBHOOK_URL, json=data)
-            print(f"Resolution update status: {response.status_code}")
             
             if response.status_code == 200:
-                print("✅ Successfully updated resolution status")
+                print(f"✅ Resolution update sent successfully for thread ID: {thread_id}")
                 
                 # Add a checkmark reaction to the last message if possible
                 try:
@@ -133,11 +128,11 @@ async def on_thread_update(before, after):
                         await message.add_reaction("✅")
                         break
                 except Exception as e:
-                    print(f"Error adding reaction to latest message: {str(e)}")
+                    print(f"Error adding reaction: {str(e)}")
             else:
-                print(f"❌ Failed to update resolution status: {response.text}")
+                print(f"❌ Failed to send resolution update: {response.status_code}")
         except Exception as e:
-            print(f"Error updating resolution status: {str(e)}")
+            print(f"❌ Error sending resolution update: {str(e)}")
 
 @client.event
 async def on_message(message):
@@ -157,11 +152,7 @@ async def on_message(message):
     thread_id = channel.id
     thread_title = channel.name
     
-    print(f"\n===== MESSAGE IN SUPPORT THREAD =====")
-    print(f"Thread Title: {thread_title}")
-    print(f"Thread ID: {thread_id}")
-    print(f"Author: {message.author}")
-    print(f"Content: {message.content[:50]}...")
+    print(f"Message received in thread: {thread_title} (ID: {thread_id})")
     
     # Get the first message of the thread to identify the creator
     thread_starter = None
@@ -193,22 +184,22 @@ async def on_message(message):
     
     # Set event type based on whether this is the starter or a response
     message_data['event_type'] = 'thread_created' if is_thread_starter else 'thread_response'
+    event_type = "new thread" if is_thread_starter else "response"
     
     # Send to webhook
     try:
-        print(f"Sending data to webhook: {json.dumps(message_data, indent=2)}")
         response = requests.post(WEBHOOK_URL, json=message_data)
         
-        print(f"Webhook response status: {response.status_code}")
         if response.status_code == 200:
             # Add a reaction to indicate success
             reaction = "✅" if is_thread_starter else "🔔"
             await message.add_reaction(reaction)
+            print(f"✅ {event_type.capitalize()} processed for thread ID: {thread_id}")
         else:
             await message.add_reaction("❌")
-            print(f"Error response: {response.text}")
+            print(f"❌ Failed to process {event_type}: {response.status_code}")
     except Exception as e:
-        print(f"Error sending to webhook: {str(e)}")
+        print(f"❌ Error processing {event_type}: {str(e)}")
         await message.add_reaction("❌")
 
 # Run the bot

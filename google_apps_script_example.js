@@ -86,14 +86,14 @@ function doPost(e) {
  */
 function processThreadCreation(sheet, payload) {
   const thread_id = payload.thread_id;
-  logInfo(`Processing thread creation for thread ID: ${thread_id}`);
+  logInfo(`Processing thread creation: ${thread_id}`);
   
   // Check if thread already exists
   const rowIndex = findThreadRow(sheet, thread_id);
   
   // If thread exists, update it; otherwise create a new row
   if (rowIndex > 0) {
-    logInfo(`Thread ID ${thread_id} already exists at row ${rowIndex}, updating...`);
+    logInfo(`Updating existing thread: ${thread_id}`);
     
     // Update existing row with new creation data
     const rowData = [
@@ -113,7 +113,7 @@ function processThreadCreation(sheet, payload) {
     
   } else {
     // Create a new row for this thread
-    logInfo(`Creating new row for thread ID: ${thread_id}`);
+    logInfo(`Creating new thread: ${thread_id}`);
     
     const rowData = [
       thread_id,
@@ -134,8 +134,6 @@ function processThreadCreation(sheet, payload) {
     // Append the new row
     sheet.getRange(lastRow + 1, 1, 1, rowData.length).setValues([rowData]);
   }
-  
-  logInfo(`Successfully processed thread creation for thread ID: ${thread_id}`);
 }
 
 /**
@@ -143,7 +141,7 @@ function processThreadCreation(sheet, payload) {
  */
 function processThreadResponse(sheet, payload) {
   const thread_id = payload.thread_id;
-  logInfo(`Processing response for thread ID: ${thread_id}`);
+  logInfo(`Processing response: ${thread_id}`);
   
   // Find the thread's row
   const rowIndex = findThreadRow(sheet, thread_id);
@@ -154,7 +152,7 @@ function processThreadResponse(sheet, payload) {
     
     // Only update if first_responded_by is empty (this is the first response)
     if (!rowData[COLS.FIRST_RESPONDED_BY]) {
-      logInfo(`Updating first response for thread ID: ${thread_id}`);
+      logInfo(`Recording first response: ${thread_id}`);
       
       // Calculate time difference between creation and response
       const creationTime = new Date(rowData[COLS.DATE]);
@@ -164,14 +162,12 @@ function processThreadResponse(sheet, payload) {
       // Update first responder and time
       sheet.getRange(rowIndex, COLS.FIRST_RESPONDED_BY + 1).setValue(payload.author);
       sheet.getRange(rowIndex, COLS.TIME_TAKEN_TO_RESPOND + 1).setValue(timeDiff);
-      
-      logInfo(`Updated first response data for thread ID: ${thread_id}`);
     } else {
-      logInfo(`Thread ${thread_id} already has a first response recorded, ignoring`);
+      logInfo(`Thread already has first response: ${thread_id}`);
     }
   } else {
     // If thread doesn't exist yet, create it first
-    logInfo(`Thread ID ${thread_id} not found, creating it first...`);
+    logInfo(`Thread not found, creating with response data: ${thread_id}`);
     
     const newRowData = [
       thread_id,
@@ -189,8 +185,6 @@ function processThreadResponse(sheet, payload) {
     // Append the new row
     const lastRow = Math.max(1, sheet.getLastRow());
     sheet.getRange(lastRow + 1, 1, 1, newRowData.length).setValues([newRowData]);
-    
-    logInfo(`Created new row for thread ID: ${thread_id} with response data`);
   }
 }
 
@@ -199,7 +193,7 @@ function processThreadResponse(sheet, payload) {
  */
 function processThreadResolution(sheet, payload) {
   const thread_id = payload.thread_id;
-  logInfo(`Processing resolution for thread ID: ${thread_id}`);
+  logInfo(`Processing resolution: ${thread_id}`);
   
   // Find the thread's row
   const rowIndex = findThreadRow(sheet, thread_id);
@@ -208,23 +202,18 @@ function processThreadResolution(sheet, payload) {
     // Get current data
     const rowData = sheet.getRange(rowIndex, 1, 1, 10).getValues()[0];
     
-    logInfo(`Found thread at row ${rowIndex}. Current data: ${JSON.stringify(rowData)}`);
-    
     // Only update if not already resolved
     if (!rowData[COLS.TIME_TAKEN_TO_RESOLVE] || rowData[COLS.TIME_TAKEN_TO_RESOLVE] === "") {
-      logInfo(`Updating resolution for thread ID: ${thread_id}`);
+      logInfo(`Recording resolution time: ${thread_id}`);
       
       // Calculate time difference between creation and resolution
       const creationTime = new Date(rowData[COLS.DATE]);
       const resolutionTime = new Date(payload.resolved_time);
       const timeDiff = calculateTimeDiff(creationTime, resolutionTime);
       
-      logInfo(`Resolution calculation: Creation time: ${creationTime}, Resolution time: ${resolutionTime}, Diff: ${timeDiff}`);
-      
       // Update issue type if provided in the payload
       if (payload.type) {
         sheet.getRange(rowIndex, COLS.TYPE + 1).setValue(payload.type);
-        logInfo(`Updated issue type to: ${payload.type}`);
       }
       
       // Update resolution time and date
@@ -235,15 +224,13 @@ function processThreadResolution(sheet, payload) {
       if (payload.thread_link && !rowData[COLS.LINK]) {
         sheet.getRange(rowIndex, COLS.LINK + 1).setValue(payload.thread_link);
       }
-      
-      logInfo(`Successfully updated resolution data for thread ID: ${thread_id}`);
     } else {
-      logInfo(`Thread ${thread_id} already marked as resolved, ignoring resolution update`);
+      logInfo(`Thread already resolved: ${thread_id}`);
     }
     return;
   } else {
     // If thread doesn't exist yet, create it with resolution data
-    logInfo(`Thread ID ${thread_id} not found, creating it with resolution data...`);
+    logInfo(`Thread not found, creating with resolution data: ${thread_id}`);
     
     const newRowData = [
       thread_id,
@@ -261,8 +248,6 @@ function processThreadResolution(sheet, payload) {
     // Append the new row
     const lastRow = Math.max(1, sheet.getLastRow());
     sheet.getRange(lastRow + 1, 1, 1, newRowData.length).setValues([newRowData]);
-    
-    logInfo(`Created new row for thread ID: ${thread_id} with resolution data`);
   }
 }
 
