@@ -34,11 +34,20 @@ ISSUE_TYPE_TAGS = {
 RESOLVED_TAGS = ["resolved", "completed", "fixed", "closed"]
 
 def get_issue_type_from_tags(tags):
-    """Extract issue type from forum tags"""
+    """Extract issue type from forum tags and join them"""
+    matched_types = []
+    
     for tag in tags:
         tag_name = tag.name.lower()
         if tag_name in ISSUE_TYPE_TAGS:
-            return ISSUE_TYPE_TAGS[tag_name]
+            matched_types.append(ISSUE_TYPE_TAGS[tag_name])
+        else:
+            # Include any custom tags that aren't in our predefined list
+            matched_types.append(tag.name)
+    
+    # Join all tags with commas, or use default if none found
+    if matched_types:
+        return ", ".join(matched_types)
     return "General Issue"  # Default if no matching tag found
 
 def is_thread_resolved(tags):
@@ -75,8 +84,11 @@ async def on_thread_update(before, after):
     if not hasattr(after, 'parent_id') or after.parent_id != SUPPORT_CHANNEL_ID:
         return
     
-    # Check if thread has been marked as resolved
-    if hasattr(after, "applied_tags") and is_thread_resolved(after.applied_tags):
+    # Check if thread was just marked as resolved (wasn't resolved before, but is now)
+    was_resolved_before = hasattr(before, "applied_tags") and is_thread_resolved(before.applied_tags)
+    is_resolved_now = hasattr(after, "applied_tags") and is_thread_resolved(after.applied_tags)
+    
+    if is_resolved_now and not was_resolved_before:
         thread_id = after.id
         thread_title = after.name
         
@@ -84,23 +96,44 @@ async def on_thread_update(before, after):
         print(f"Thread Title: {thread_title}")
         print(f"Thread ID: {thread_id}")
         
+        # Get all current tags for the issue type
+        issue_type = "Unknown"
+        if hasattr(after, "applied_tags"):
+            issue_type = get_issue_type_from_tags(after.applied_tags)
+        
         # Get resolution time
         resolved_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Get thread URL
+        thread_link = ""
+        if hasattr(after, "guild") and after.guild:
+            thread_link = f"https://discord.com/channels/{after.guild.id}/{thread_id}"
         
         # Send update to the webhook
         try:
             data = {
                 'thread_id': str(thread_id),
                 'title': thread_title,
+                'type': issue_type,
                 'resolved_time': resolved_time,
+                'thread_link': thread_link,
                 'event_type': 'resolution'
             }
             
+            print(f"Sending resolution data to webhook: {json.dumps(data, indent=2)}")
             response = requests.post(WEBHOOK_URL, json=data)
             print(f"Resolution update status: {response.status_code}")
             
             if response.status_code == 200:
                 print("✅ Successfully updated resolution status")
+                
+                # Add a checkmark reaction to the last message if possible
+                try:
+                    async for message in after.history(limit=1):
+                        await message.add_reaction("✅")
+                        break
+                except Exception as e:
+                    print(f"Error adding reaction to latest message: {str(e)}")
             else:
                 print(f"❌ Failed to update resolution status: {response.text}")
         except Exception as e:

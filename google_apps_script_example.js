@@ -208,8 +208,10 @@ function processThreadResolution(sheet, payload) {
     // Get current data
     const rowData = sheet.getRange(rowIndex, 1, 1, 10).getValues()[0];
     
+    logInfo(`Found thread at row ${rowIndex}. Current data: ${JSON.stringify(rowData)}`);
+    
     // Only update if not already resolved
-    if (!rowData[COLS.TIME_TAKEN_TO_RESOLVE]) {
+    if (!rowData[COLS.TIME_TAKEN_TO_RESOLVE] || rowData[COLS.TIME_TAKEN_TO_RESOLVE] === "") {
       logInfo(`Updating resolution for thread ID: ${thread_id}`);
       
       // Calculate time difference between creation and resolution
@@ -217,14 +219,28 @@ function processThreadResolution(sheet, payload) {
       const resolutionTime = new Date(payload.resolved_time);
       const timeDiff = calculateTimeDiff(creationTime, resolutionTime);
       
-      // Update resolution time
+      logInfo(`Resolution calculation: Creation time: ${creationTime}, Resolution time: ${resolutionTime}, Diff: ${timeDiff}`);
+      
+      // Update issue type if provided in the payload
+      if (payload.type) {
+        sheet.getRange(rowIndex, COLS.TYPE + 1).setValue(payload.type);
+        logInfo(`Updated issue type to: ${payload.type}`);
+      }
+      
+      // Update resolution time and date
       sheet.getRange(rowIndex, COLS.TIME_TAKEN_TO_RESOLVE + 1).setValue(timeDiff);
       sheet.getRange(rowIndex, COLS.RESOLVED_DATE + 1).setValue(payload.resolved_time);
       
-      logInfo(`Updated resolution data for thread ID: ${thread_id}`);
+      // Update link if provided
+      if (payload.thread_link && !rowData[COLS.LINK]) {
+        sheet.getRange(rowIndex, COLS.LINK + 1).setValue(payload.thread_link);
+      }
+      
+      logInfo(`Successfully updated resolution data for thread ID: ${thread_id}`);
     } else {
-      logInfo(`Thread ${thread_id} already marked as resolved, ignoring`);
+      logInfo(`Thread ${thread_id} already marked as resolved, ignoring resolution update`);
     }
+    return;
   } else {
     // If thread doesn't exist yet, create it with resolution data
     logInfo(`Thread ID ${thread_id} not found, creating it with resolution data...`);
@@ -232,14 +248,14 @@ function processThreadResolution(sheet, payload) {
     const newRowData = [
       thread_id,
       payload.title || "",
-      "Unknown", // Type (unknown)
+      payload.type || "Unknown", // Use provided type if available
       "Unknown", // Creator (unknown)
       new Date().toISOString(), // Using current time as we don't know creation time
       "", // First responder (empty)
       "", // Time to respond (empty)
       "N/A", // Time to resolve (we don't know accurate creation time)
       payload.resolved_time || new Date().toISOString(),
-      ""  // Link (unknown)
+      payload.thread_link || ""  // Link if provided
     ];
     
     // Append the new row
