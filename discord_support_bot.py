@@ -191,11 +191,12 @@ async def on_message(message):
         response = requests.post(WEBHOOK_URL, json=message_data)
         
         if response.status_code == 200:
-            # Add a reaction to indicate success
-            reaction = "✅" if is_thread_starter else "🔔"
-            await message.add_reaction(reaction)
+            # Only add the checkmark reaction to new thread creation messages
+            if is_thread_starter:
+                await message.add_reaction("✅")
             print(f"✅ {event_type.capitalize()} processed for thread ID: {thread_id}")
         else:
+            # For errors, still show the X reaction to indicate failure
             await message.add_reaction("❌")
             print(f"❌ Failed to process {event_type}: {response.status_code}")
     except Exception as e:
