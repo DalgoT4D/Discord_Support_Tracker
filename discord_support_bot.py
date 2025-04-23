@@ -23,7 +23,7 @@ intents.message_content = True  # Required for reading message content
 client = discord.Client(intents=intents)
 
 # Tags that indicate a thread is resolved
-RESOLVED_TAGS = ["resolved", "completed", "fixed", "closed"]
+RESOLVED_TAGS = ["resolved"]
 
 def get_issue_type_from_tags(tags):
     """Extract issue type from forum tags and join them"""
