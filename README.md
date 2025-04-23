@@ -1,4 +1,6 @@
 # Discord Support Bot
+Link to the google sheet:
+https://docs.google.com/spreadsheets/d/1kDKEkdfcYMQN5Hn4BAIDwHfA6h5340RiIp7AJXRl0RI/edit?usp=sharing
 
 A simple Discord bot that forwards support requests to a Google Sheet using Google Apps Script.
 
@@ -55,3 +57,4 @@ For production, you can:
 - Use a systemd service (Linux)
 - Run with PM2: `pm2 start discord_support_bot.py --interpreter python`
 - Use Docker: `docker run -d --name discord-bot -v $(pwd):/app python:3.9 python /app/discord_support_bot.py` 
+
