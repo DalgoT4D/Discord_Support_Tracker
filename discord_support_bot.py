@@ -22,33 +22,17 @@ intents = discord.Intents.default()
 intents.message_content = True  # Required for reading message content
 client = discord.Client(intents=intents)
 
-# Tags to identify issue types
-ISSUE_TYPE_TAGS = {
-    "platform": "Platform Issue",
-    "dbt": "DBT Issue",
-    "prefect": "Prefect Issue",
-    "knowledge issue": "Knowledge Issue"
-}
-
 # Tags that indicate a thread is resolved
 RESOLVED_TAGS = ["resolved", "completed", "fixed", "closed"]
 
 def get_issue_type_from_tags(tags):
     """Extract issue type from forum tags and join them"""
-    matched_types = []
+    tag_names = [tag.name for tag in tags]
     
-    for tag in tags:
-        tag_name = tag.name.lower()
-        if tag_name in ISSUE_TYPE_TAGS:
-            matched_types.append(ISSUE_TYPE_TAGS[tag_name])
-        else:
-            # Include any custom tags that aren't in our predefined list
-            matched_types.append(tag.name)
-    
-    # Join all tags with commas, or use default if none found
-    if matched_types:
-        return ", ".join(matched_types)
-    return "General Issue"  # Default if no matching tag found
+    # Join all tags with commas, or return empty list if none found
+    if tag_names:
+        return ", ".join(tag_names)
+    return ""  # Return empty string if no tags found
 
 def is_thread_resolved(tags):
     """Check if any of the tags indicate the thread is resolved"""
