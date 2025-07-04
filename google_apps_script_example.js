@@ -20,7 +20,8 @@ const COLS = {
   TIME_TAKEN_TO_RESPOND: 6,
   TIME_TAKEN_TO_RESOLVE: 7,
   RESOLVED_DATE: 8,
-  LINK: 9
+  LINK: 9,
+  IS_ENGINEERING: 10  // New column for engineering classification
 };
 
 /**
@@ -106,7 +107,8 @@ function processThreadCreation(sheet, payload) {
       "", // Time to respond (empty)
       "", // Time to resolve (empty)
       "", // Resolved date (empty)
-      payload.thread_link || ""
+      payload.thread_link || "",
+      (payload.is_engineering === true || payload.is_engineering === false) ? payload.is_engineering : true // Engineering flag
     ];
     
     sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
@@ -125,7 +127,8 @@ function processThreadCreation(sheet, payload) {
       "", // Time to respond (empty)
       "", // Time to resolve (empty)
       "", // Resolved date (empty)
-      payload.thread_link || ""
+      payload.thread_link || "",
+      (payload.is_engineering === true || payload.is_engineering === false) ? payload.is_engineering : true // Engineering flag
     ];
     
     // Get the last row with data
@@ -147,8 +150,8 @@ function processThreadResponse(sheet, payload) {
   const rowIndex = findThreadRow(sheet, thread_id);
   
   if (rowIndex > 0) {
-    // Get current data
-    const rowData = sheet.getRange(rowIndex, 1, 1, 10).getValues()[0];
+    // Get current data (now includes 11 columns)
+    const rowData = sheet.getRange(rowIndex, 1, 1, 11).getValues()[0];
     
     // Only update if first_responded_by is empty (this is the first response)
     if (!rowData[COLS.FIRST_RESPONDED_BY]) {
@@ -179,7 +182,8 @@ function processThreadResponse(sheet, payload) {
       "N/A",  // Time to respond (N/A since we don't know creation time)
       "", // Time to resolve (empty)
       "", // Resolved date (empty)
-      payload.thread_link || ""
+      payload.thread_link || "",
+      (payload.is_engineering === true || payload.is_engineering === false) ? payload.is_engineering : true // Engineering flag
     ];
     
     // Append the new row
@@ -199,8 +203,8 @@ function processThreadResolution(sheet, payload) {
   const rowIndex = findThreadRow(sheet, thread_id);
   
   if (rowIndex > 0) {
-    // Get current data
-    const rowData = sheet.getRange(rowIndex, 1, 1, 10).getValues()[0];
+    // Get current data (now includes 11 columns)
+    const rowData = sheet.getRange(rowIndex, 1, 1, 11).getValues()[0];
     
     // Only update if not already resolved
     if (!rowData[COLS.TIME_TAKEN_TO_RESOLVE] || rowData[COLS.TIME_TAKEN_TO_RESOLVE] === "") {
@@ -242,7 +246,8 @@ function processThreadResolution(sheet, payload) {
       "", // Time to respond (empty)
       "N/A", // Time to resolve (we don't know accurate creation time)
       payload.resolved_time || new Date().toISOString(),
-      payload.thread_link || ""  // Link if provided
+      payload.thread_link || "",  // Link if provided
+      (payload.is_engineering === true || payload.is_engineering === false) ? payload.is_engineering : true // Engineering flag
     ];
     
     // Append the new row
@@ -330,7 +335,8 @@ function setupSheet() {
     "time_to_first_response", 
     "time_to_resolution",
     "resolution_date",
-    "link"
+    "link",
+    "is_engineering"  // New column
   ];
   
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -361,7 +367,8 @@ function testThreadCreation() {
     author: "TestUser#1234",
     timestamp: new Date().toISOString(),
     thread_link: "https://discord.com/channels/1234/5678",
-    event_type: "thread_created"
+    event_type: "thread_created",
+    is_engineering: true
   };
   
   // Create mock event
@@ -437,6 +444,47 @@ function logInfo(message) {
 function logError(message) {
   Logger.log(`[ERROR] ${message}`);
   console.error(message);
+}
+
+/**
+ * Test function specifically for debugging engineering field
+ */
+function testEngineeringField() {
+  logInfo("=== Testing Engineering Field ===");
+  
+  // Test with is_engineering = false (engineering issue)
+  const engineeringPayload = {
+    thread_id: "test_eng_false",
+    title: "Engineering Test - False",
+    type: "Platform Issue",
+    author: "TestUser#1234",
+    timestamp: new Date().toISOString(),
+    thread_link: "https://discord.com/channels/1234/5678",
+    event_type: "thread_created",
+    is_engineering: false
+  };
+  
+  logInfo(`Testing with is_engineering = false`);
+  const mockEvent1 = { postData: { contents: JSON.stringify(engineeringPayload) } };
+  doPost(mockEvent1);
+  
+  // Test with is_engineering = true (non-engineering issue)
+  const nonEngineeringPayload = {
+    thread_id: "test_eng_true",
+    title: "Non-Engineering Test - True",
+    type: "General Issue",
+    author: "TestUser#5678",
+    timestamp: new Date().toISOString(),
+    thread_link: "https://discord.com/channels/1234/5678",
+    event_type: "thread_created",
+    is_engineering: true
+  };
+  
+  logInfo(`Testing with is_engineering = true`);
+  const mockEvent2 = { postData: { contents: JSON.stringify(nonEngineeringPayload) } };
+  doPost(mockEvent2);
+  
+  logInfo("=== Engineering Field Test Complete ===");
 }
 
 /**

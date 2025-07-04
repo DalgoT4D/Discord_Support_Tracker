@@ -17,6 +17,7 @@ import os
 import requests
 import json
 import asyncio
+import sys
 from dotenv import load_dotenv
 from datetime import datetime, timezone
 
@@ -28,12 +29,90 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 SUPPORT_CHANNEL_ID = int(os.getenv("SUPPORT_CHANNEL_ID", 0))
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
 
-# Date range for historical data (modify these as needed)
-# Default: April 1st to June 30th, 2024
-START_DATE = datetime(2025, 4, 1, tzinfo=timezone.utc)
-END_DATE = datetime(2025, 6, 30, 23, 59, 59, tzinfo=timezone.utc)
+def get_date_range():
+    """Get date range from user input or command line arguments"""
+    
+    # Check if dates provided as command line arguments
+    if len(sys.argv) >= 3:
+        try:
+            start_str = sys.argv[1]  # Format: YYYY-MM-DD
+            end_str = sys.argv[2]    # Format: YYYY-MM-DD
+            
+            start_date = datetime.strptime(start_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            end_date = datetime.strptime(end_str, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+            
+            return start_date, end_date
+        except ValueError:
+            print("❌ Invalid date format. Use YYYY-MM-DD")
+            sys.exit(1)
+    
+    # Interactive prompts
+    print("📅 Configure Date Range for Migration")
+    print("=" * 40)
+    print()
+    
+    # Suggest some common options
+    print("🎯 Common options:")
+    print("   1. Last 3 months")
+    print("   2. All of 2024")  
+    print("   3. All of 2025")
+    print("   4. Custom date range")
+    print()
+    
+    choice = input("Choose an option (1-4): ").strip()
+    
+    now = datetime.now(timezone.utc)
+    
+    if choice == "1":
+        # Last 3 months
+        start_date = datetime(now.year, now.month - 3 if now.month > 3 else now.month + 9, 1, tzinfo=timezone.utc)
+        if now.month <= 3:
+            start_date = start_date.replace(year=now.year - 1)
+        end_date = now
+        
+    elif choice == "2":
+        # All of 2024
+        start_date = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        end_date = datetime(2024, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+        
+    elif choice == "3":
+        # All of 2025
+        start_date = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        end_date = datetime(2025, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+        
+    elif choice == "4":
+        # Custom range
+        print()
+        print("Enter custom date range:")
+        
+        while True:
+            try:
+                start_str = input("Start date (YYYY-MM-DD): ").strip()
+                start_date = datetime.strptime(start_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                break
+            except ValueError:
+                print("❌ Invalid format. Use YYYY-MM-DD (e.g., 2025-04-01)")
+        
+        while True:
+            try:
+                end_str = input("End date (YYYY-MM-DD): ").strip()
+                end_date = datetime.strptime(end_str, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+                break
+            except ValueError:
+                print("❌ Invalid format. Use YYYY-MM-DD (e.g., 2025-06-30)")
+    
+    else:
+        print("❌ Invalid choice. Using default: April-June 2025")
+        start_date = datetime(2025, 4, 1, tzinfo=timezone.utc)
+        end_date = datetime(2025, 6, 30, 23, 59, 59, tzinfo=timezone.utc)
+    
+    return start_date, end_date
+
+# Get date range dynamically
+START_DATE, END_DATE = get_date_range()
 
 # Print configuration
+print()
 print(f"🔧 Configuration:")
 print(f"   Support Channel ID: {SUPPORT_CHANNEL_ID}")
 print(f"   Webhook URL: {WEBHOOK_URL}")
@@ -108,14 +187,23 @@ async def process_thread_messages(thread, processed_threads):
         first_message_content = messages_in_range[0].content
     
     # Determine if this is an engineering issue
-    # If first message mentions @Siddhant or @Pratiksha#T4D, then is_engineering = False
+    # If first message mentions Siddhant (365127154847186945) or Prateeksha (535859343665397791), then is_engineering = False
     # Otherwise, is_engineering = True
-    engineering_mentions = ["@Siddhant", "@Pratiksha#T4D"]
-    found_mentions = [mention for mention in engineering_mentions if mention in first_message_content]
+    engineering_user_ids = ["365127154847186945", "535859343665397791"]  # Siddhant, Prateeksha
+    found_mentions = [user_id for user_id in engineering_user_ids if user_id in first_message_content]
     is_engineering = len(found_mentions) == 0
     
     if found_mentions:
-        print(f"  🔧 Engineering mentions found: {', '.join(found_mentions)} → is_engineering = False")
+        # Convert user IDs to names for display
+        user_names = []
+        for user_id in found_mentions:
+            if user_id == "365127154847186945":
+                user_names.append("Siddhant")
+            elif user_id == "535859343665397791":
+                user_names.append("Prateeksha")
+            else:
+                user_names.append(f"UserID:{user_id}")
+        print(f"  🔧 Engineering mentions found: {', '.join(user_names)} → is_engineering = False")
     else:
         print(f"  🏢 No engineering mentions found → is_engineering = True")
     
@@ -276,7 +364,7 @@ async def scan_channel_history():
     print(f"   - Messages imported: {total_messages}")
     print(f"   - Date range: {START_DATE.date()} to {END_DATE.date()}")
     print(f"   - Data includes: Thread creation + All responses + Engineering classification")
-    print(f"   - Engineering logic: is_engineering = False if first message contains @Siddhant or @Pratiksha#T4D")
+    print(f"   - Engineering logic: is_engineering = False if first message contains Siddhant or Prateeksha user IDs")
     print(f"   - Note: Resolution timing to be calculated manually in your sheet")
     print("=" * 60)
 

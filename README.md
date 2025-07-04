@@ -14,9 +14,9 @@ A simple Discord bot that forwards support requests to a Google Sheet using Goog
    - Copy the bot token
 
 2. **Set Up Google Apps Script**
-   - Create a Google Sheet with columns for title, user, and date
-   - Open Script Editor (Extensions > Apps Script)
-   - Copy the code from `google_apps_script_example.js` into the editor
+   - Create a Google Sheet with columns for title, user, date, and engineering classification
+   - Open Script Editor (Extensions > Apps Script)  
+   - Copy the code from `google_apps_script_example.js` into the editor (includes `is_engineering` field support)
    - Deploy as web app:
      - Click "Deploy" > "New deployment"
      - Select type: "Web app"
@@ -106,8 +106,17 @@ The script will:
 5. **Note**: Resolution timing calculations are left for manual handling in your sheet
 
 **Engineering Classification Logic:**
-- If the first message (support query) contains `@Siddhant` or `@Pratiksha#T4D` → `is_engineering = false`
+- If the first message (support query) contains Siddhant (ID: 365127154847186945) or Prateeksha (ID: 535859343665397791) → `is_engineering = false`
 - Otherwise → `is_engineering = true`
+
+**Date Range Options:**
+```bash
+# Interactive mode (prompts for date selection)
+python migrate_history.py
+
+# Command line mode (specify dates directly)
+python migrate_history.py 2025-04-01 2025-06-30
+```
 
 ## Deployment
 

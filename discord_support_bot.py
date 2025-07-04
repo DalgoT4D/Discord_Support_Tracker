@@ -162,9 +162,19 @@ async def on_message(message):
     # Check if this is the thread starter or a response
     is_thread_starter = thread_starter and message.author.id == thread_starter.id
     
+    # Determine if this is an engineering issue (for thread creation only)
+    is_engineering = True  # Default value
+    if is_thread_starter:
+        # If first message mentions Siddhant (365127154847186945) or Prateeksha (535859343665397791), then is_engineering = False
+        engineering_user_ids = ["365127154847186945", "535859343665397791"]  # Siddhant, Prateeksha
+        is_engineering = not any(user_id in message.content for user_id in engineering_user_ids)
+    
     # Get issue type from thread tags
     if hasattr(channel, "applied_tags"):
         message_data['type'] = get_issue_type_from_tags(channel.applied_tags)
+    
+    # Add engineering flag
+    message_data['is_engineering'] = is_engineering
     
     # Set event type based on whether this is the starter or a response
     message_data['event_type'] = 'thread_created' if is_thread_starter else 'thread_response'
