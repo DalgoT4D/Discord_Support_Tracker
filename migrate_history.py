@@ -342,6 +342,20 @@ async def scan_channel_history():
             else:
                 print(f"📅 Starting with month: {thread_month}")
                 print()
+            
+            # Send month separator to Google Sheet
+            month_name = thread.created_at.strftime("%B %Y")  # e.g., "April 2025"
+            separator_data = {
+                'month_separator': True,
+                'month_name': month_name,
+                'historical_import': True
+            }
+            
+            if send_to_webhook(separator_data):
+                print(f"  ✅ Added month separator: {month_name}")
+            else:
+                print(f"  ❌ Failed to add month separator: {month_name}")
+            
             current_month = thread_month
         result = await process_thread_messages(thread, processed_threads)
         

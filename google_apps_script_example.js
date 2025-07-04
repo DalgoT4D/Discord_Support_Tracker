@@ -51,6 +51,15 @@ function doPost(e) {
       sheet = setupSheet();
     }
     
+    // Check if this is a month separator
+    if (payload.month_separator === true) {
+      processMonthSeparator(sheet, payload);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        message: `Added month separator: ${payload.month_name}`
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
     // Process based on event type
     switch(payload.event_type) {
       case 'thread_created':
@@ -190,6 +199,42 @@ function processThreadResponse(sheet, payload) {
     const lastRow = Math.max(1, sheet.getLastRow());
     sheet.getRange(lastRow + 1, 1, 1, newRowData.length).setValues([newRowData]);
   }
+}
+
+/**
+ * Process a month separator event
+ */
+function processMonthSeparator(sheet, payload) {
+  logInfo(`Adding month separator: ${payload.month_name}`);
+  
+  // Create a row with month name in first column and empty cells for the rest
+  const rowData = [
+    payload.month_name,  // Month name (e.g., "April 2025")
+    "",  // Title (empty)
+    "",  // Type (empty)
+    "",  // Raised by (empty)
+    "",  // Date (empty)
+    "",  // First responder (empty)
+    "",  // Time to respond (empty)
+    "",  // Time to resolve (empty)
+    "",  // Resolved date (empty)
+    "",  // Link (empty)
+    ""   // Is engineering (empty)
+  ];
+  
+  // Get the last row with data
+  const lastRow = Math.max(1, sheet.getLastRow());
+  
+  // Append the month separator row
+  const range = sheet.getRange(lastRow + 1, 1, 1, rowData.length);
+  range.setValues([rowData]);
+  
+  // Format the month separator row to make it stand out
+  range.setBackgroundColor("#e6f3ff");  // Light blue background
+  range.setFontWeight("bold");          // Bold text
+  range.setFontSize(11);               // Slightly larger font
+  
+  logInfo(`Month separator added successfully: ${payload.month_name}`);
 }
 
 /**
@@ -485,6 +530,26 @@ function testEngineeringField() {
   doPost(mockEvent2);
   
   logInfo("=== Engineering Field Test Complete ===");
+}
+
+/**
+ * Test function for month separator functionality
+ */
+function testMonthSeparator() {
+  logInfo("=== Testing Month Separator ===");
+  
+  const monthSeparatorPayload = {
+    month_separator: true,
+    month_name: "April 2025",
+    historical_import: true
+  };
+  
+  logInfo(`Testing month separator with: ${monthSeparatorPayload.month_name}`);
+  const mockEvent = { postData: { contents: JSON.stringify(monthSeparatorPayload) } };
+  const result = doPost(mockEvent);
+  
+  logInfo("Month separator test result: " + result.getContent());
+  logInfo("=== Month Separator Test Complete ===");
 }
 
 /**

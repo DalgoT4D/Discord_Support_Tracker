@@ -102,12 +102,18 @@ The script will:
 1. Scan all threads in the specified date range (with visual month breakpoints)
 2. Import thread creation and all response messages
 3. Classify threads as engineering vs non-engineering based on mentions
-4. Send everything to your Google Sheet using the same webhook
-5. **Note**: Resolution timing calculations are left for manual handling in your sheet
+4. **Add month separator rows** in your Google Sheet when moving between months
+5. Send everything to your Google Sheet using the same webhook
+6. **Note**: Resolution timing calculations are left for manual handling in your sheet
 
 **Engineering Classification Logic:**
 - If the first message (support query) contains Siddhant (ID: 365127154847186945) or Prateeksha (ID: 535859343665397791) → `is_engineering = false`
 - Otherwise → `is_engineering = true`
+
+**Month Separators:**
+- When the migration script encounters a new month, it automatically adds a separator row in your Google Sheet
+- Separator rows show the month name and year (e.g., "April 2025") with light blue background and bold formatting
+- This makes it easy to visually distinguish between different months in your data
 
 **Date Range Options:**
 ```bash
