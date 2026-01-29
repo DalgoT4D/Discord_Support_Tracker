@@ -166,8 +166,8 @@ async def on_message(message):
     is_engineering = True  # Default value
     if is_thread_starter:
         # If first message mentions Siddhant (365127154847186945) or Prateeksha (535859343665397791), then is_engineering = False
-        engineering_user_ids = ["365127154847186945", "535859343665397791"]  # Siddhant, Prateeksha
-        is_engineering = not any(user_id in message.content for user_id in engineering_user_ids)
+        consulting_discord_user_ids = ["365127154847186945", "535859343665397791", "441276013578813441", "1394202624999559230"]  # Siddhant, Prateeksha
+        is_engineering = not any(user_id in message.content for user_id in consulting_discord_user_ids)
     
     # Get issue type from thread tags
     if hasattr(channel, "applied_tags"):
