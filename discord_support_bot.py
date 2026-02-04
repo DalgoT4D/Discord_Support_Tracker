@@ -64,6 +64,14 @@ def parse_int_list_env(name: str) -> list:
     return result
 
 
+def parse_string_list_env(name: str) -> list:
+    """Parse comma-separated string list from environment variable"""
+    value = os.getenv(name, "")
+    if not value:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 # Configuration with validation
 try:
     DISCORD_TOKEN = get_env_var("DISCORD_TOKEN")
@@ -95,17 +103,13 @@ SLA_TIMEOUT_MINUTES = 60  # 1 hour
 RESOLVED_TAGS = ["resolved"]
 
 # Consulting team Discord user IDs (for is_engineering detection)
-CONSULTING_USER_IDS = [
-    "365127154847186945",   # Siddhant
-    "535859343665397791",   # Prateeksha
-    "441276013578813441",
-    "1394202624999559230"
-]
+CONSULTING_USER_IDS = parse_string_list_env("CONSULTING_USER_IDS")
 
 # Print configuration for debugging
 logger.info(f"Support Channel ID: {SUPPORT_CHANNEL_ID}")
 logger.info(f"Webhook URL: {WEBHOOK_URL[:50]}...")
 logger.info(f"Alert Channel IDs: {ALERT_CHANNEL_IDS}")
+logger.info(f"Consulting User IDs: {CONSULTING_USER_IDS}")
 
 # Set up Discord client with necessary intents
 intents = discord.Intents.default()
