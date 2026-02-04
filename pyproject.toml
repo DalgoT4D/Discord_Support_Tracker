@@ -1,0 +1,15 @@
+[project]
+name = "discord-support-tracker"
+version = "2.0.0"
+description = "Discord bot that tracks support tickets and logs to Google Sheets"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "discord.py>=2.3.2",
+    "python-dotenv>=1.0.0",
+    "aiohttp>=3.9.1",
+    "pytz>=2024.1",
+]
+
+[project.scripts]
+support-bot = "discord_support_bot:main"
