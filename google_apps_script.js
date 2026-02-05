@@ -309,8 +309,7 @@ function handleResolved(sheet, payload) {
       sheet.getRange(rowIndex, COLS.RESOLUTION_DATE + 1).setValue(resolutionDate);
       sheet.getRange(rowIndex, COLS.TIME_TO_RESOLUTION + 1).setValue(timeToResolution);
     } else {
-      // Subsequent resolution - only update reopen_history
-      // Append "(resolved in Xh)" to the last entry in reopen_history
+      // Subsequent resolution - calculate duration from reopen time, not original creation
       let currentHistory = "";
       try {
         currentHistory = String(sheet.getRange(rowIndex, COLS.REOPEN_HISTORY + 1).getValue() || "");
@@ -318,9 +317,33 @@ function handleResolved(sheet, payload) {
         logError(`Error reading reopen history: ${readError.message}`);
       }
 
-      // Append resolution time to the history
-      const updatedHistory = currentHistory + ` (resolved in ${timeToResolution})`;
-      sheet.getRange(rowIndex, COLS.REOPEN_HISTORY + 1).setValue(updatedHistory);
+      // Parse the last entry to get the reopen timestamp and calculate actual duration
+      const lines = currentHistory.split('\n').filter(line => line.trim());
+      if (lines.length > 0) {
+        const lastLine = lines[lines.length - 1];
+        // Extract the ISO timestamp from the last entry
+        // Format: "N. Reopened: YYYY-MM-DD HH:MM:SS (pending)"
+        const reopenMatch = lastLine.match(/Reopened:\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/);
+
+        let actualDuration = timeToResolution; // fallback to bot-calculated time
+        if (reopenMatch) {
+          const reopenedAt = new Date(reopenMatch[1]);
+          const resolvedAt = new Date(resolutionDate);
+          const durationSeconds = (resolvedAt - reopenedAt) / 1000;
+          actualDuration = formatDurationFromSeconds(durationSeconds);
+        }
+
+        // Update the last entry with resolution info
+        const formattedResolveDate = formatDateForHistory(resolutionDate);
+        const updatedLastLine = lastLine
+          .replace(' (pending)', '')
+          .replace(/,\s*Resolved:.*$/, '') + // Remove any existing resolved info
+          `, Resolved: ${formattedResolveDate}, Duration: ${actualDuration}`;
+
+        lines[lines.length - 1] = updatedLastLine;
+        const updatedHistory = lines.join('\n');
+        sheet.getRange(rowIndex, COLS.REOPEN_HISTORY + 1).setValue(updatedHistory);
+      }
     }
 
     // Always update warning message ID
@@ -365,10 +388,12 @@ function handleReopened(sheet, payload) {
     const newCount = (parseInt(currentCount) || 0) + 1;
     sheet.getRange(rowIndex, COLS.REOPEN_COUNT + 1).setValue(newCount);
 
-    // Append reopen timestamp to reopen_history
-    // Format: "Jan 18 10:30 | Jan 20 14:00" (resolution time added when resolved again)
+    // Get reopened timestamp - store full timestamp for duration calculation
     const reopenedAt = sanitizeString(payload.reopened_at, new Date().toISOString());
-    const formattedDate = formatDateForHistory(reopenedAt);
+    // Convert to parseable format: "YYYY-MM-DD HH:MM:SS"
+    const reopenDate = new Date(reopenedAt);
+    const parseableTimestamp = Utilities.formatDate(reopenDate, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+    const displayDate = formatDateForHistory(reopenedAt);
 
     let currentHistory = "";
     try {
@@ -377,9 +402,11 @@ function handleReopened(sheet, payload) {
       logError(`Error reading reopen history: ${readError.message}`);
     }
 
-    // Append new reopen entry
-    const newEntry = formattedDate;
-    const updatedHistory = currentHistory ? `${currentHistory} | ${newEntry}` : newEntry;
+    // Create new numbered entry with full timestamp for calculation
+    // Format: "N. Reopened: YYYY-MM-DD HH:MM:SS (pending)"
+    // When resolved, "(pending)" will be replaced with ", Resolved: DATE, Duration: Xh Ym"
+    const newEntry = `${newCount}. Reopened: ${parseableTimestamp} (pending)`;
+    const updatedHistory = currentHistory ? `${currentHistory}\n${newEntry}` : newEntry;
     sheet.getRange(rowIndex, COLS.REOPEN_HISTORY + 1).setValue(updatedHistory);
 
     // NOTE: We no longer clear resolution_date and time_to_resolution
@@ -409,6 +436,43 @@ function formatDateForHistory(isoDateString) {
   } catch (error) {
     logError(`Error formatting date: ${error.message}`);
     return isoDateString;
+  }
+}
+
+/**
+ * Format duration from seconds to human-readable format (e.g., "2d 4h 15m" or "45m 30s")
+ * Matches the Python bot's format_duration function
+ */
+function formatDurationFromSeconds(totalSeconds) {
+  try {
+    if (totalSeconds < 0) {
+      return "0s";
+    }
+
+    totalSeconds = Math.floor(totalSeconds);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+
+    const parts = [];
+    if (days > 0) {
+      parts.push(`${days}d`);
+    }
+    if (hours > 0 || days > 0) {
+      parts.push(`${hours}h`);
+    }
+    if (minutes > 0 || hours > 0 || days > 0) {
+      parts.push(`${minutes}m`);
+    }
+    if (parts.length === 0 || (days === 0 && hours === 0)) {
+      parts.push(`${secs}s`);
+    }
+
+    return parts.join(" ");
+  } catch (error) {
+    logError(`Error formatting duration: ${error.message}`);
+    return "Unknown";
   }
 }
 
@@ -710,12 +774,115 @@ function testReopen() {
   // Then reopen it
   const reopenPayload = {
     event_type: "reopened",
-    thread_id: threadId
+    thread_id: threadId,
+    reopened_at: new Date().toISOString()
   };
 
-  const mockEvent = { postData: { contents: JSON.stringify(reopenPayload) } };
-  const result = doPost(mockEvent);
-  logInfo("Test result: " + result.getContent());
+  doPost({ postData: { contents: JSON.stringify(reopenPayload) } });
+  logInfo("Reopened thread: " + threadId);
+
+  // Wait a bit and resolve again - duration should be calculated from reopen time
+  Utilities.sleep(2000); // 2 seconds for testing
+
+  const resolveAgainPayload = {
+    event_type: "resolved",
+    thread_id: threadId,
+    resolution_date: new Date().toISOString(),
+    time_to_resolution: "should_be_ignored_for_reopen"
+  };
+
+  const result = doPost({ postData: { contents: JSON.stringify(resolveAgainPayload) } });
+  logInfo("Test reopen/resolve result: " + result.getContent());
+}
+
+function testMultipleReopens() {
+  // Test multiple reopen/resolve cycles
+  const threadId = "test_multi_reopen_" + Date.now();
+
+  // Create thread
+  doPost({
+    postData: {
+      contents: JSON.stringify({
+        event_type: "thread_created",
+        thread_id: threadId,
+        title: "Test Multiple Reopens",
+        raised_by: "creator#1234",
+        date_created: new Date().toISOString(),
+        is_engineering: true,
+        outside_business_hours: false
+      })
+    }
+  });
+
+  // First resolution
+  doPost({
+    postData: {
+      contents: JSON.stringify({
+        event_type: "resolved",
+        thread_id: threadId,
+        resolution_date: new Date().toISOString(),
+        time_to_resolution: "2h 15m"
+      })
+    }
+  });
+  logInfo("First resolution done");
+
+  // First reopen
+  Utilities.sleep(1000);
+  doPost({
+    postData: {
+      contents: JSON.stringify({
+        event_type: "reopened",
+        thread_id: threadId,
+        reopened_at: new Date().toISOString()
+      })
+    }
+  });
+  logInfo("First reopen done");
+
+  // Second resolution (from reopen)
+  Utilities.sleep(2000);
+  doPost({
+    postData: {
+      contents: JSON.stringify({
+        event_type: "resolved",
+        thread_id: threadId,
+        resolution_date: new Date().toISOString(),
+        time_to_resolution: "ignored"
+      })
+    }
+  });
+  logInfo("Second resolution done");
+
+  // Second reopen
+  Utilities.sleep(1000);
+  doPost({
+    postData: {
+      contents: JSON.stringify({
+        event_type: "reopened",
+        thread_id: threadId,
+        reopened_at: new Date().toISOString()
+      })
+    }
+  });
+  logInfo("Second reopen done");
+
+  // Third resolution (from reopen)
+  Utilities.sleep(3000);
+  doPost({
+    postData: {
+      contents: JSON.stringify({
+        event_type: "resolved",
+        thread_id: threadId,
+        resolution_date: new Date().toISOString(),
+        time_to_resolution: "ignored"
+      })
+    }
+  });
+  logInfo("Third resolution done - check reopen_history column for:");
+  logInfo("Expected format:");
+  logInfo("1. Reopened: YYYY-MM-DD HH:MM:SS, Resolved: DATE, Duration: Xs");
+  logInfo("2. Reopened: YYYY-MM-DD HH:MM:SS, Resolved: DATE, Duration: Xs");
 }
 
 function testInvalidPayload() {
