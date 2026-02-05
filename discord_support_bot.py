@@ -656,7 +656,8 @@ async def on_thread_update(before: discord.Thread, after: discord.Thread):
             # Send to webhook
             await send_to_webhook({
                 'event_type': 'reopened',
-                'thread_id': thread_id
+                'thread_id': thread_id,
+                'reopened_at': now.strftime("%Y-%m-%d %H:%M:%S")
             })
 
     except Exception as e:

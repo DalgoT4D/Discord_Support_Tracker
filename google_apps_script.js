@@ -28,10 +28,11 @@ const COLS = {
   IS_ENGINEERING: 10,
   OUTSIDE_BUSINESS_HOURS: 11,
   REOPEN_COUNT: 12,
-  WARNING_MESSAGE_ID: 13
+  WARNING_MESSAGE_ID: 13,
+  REOPEN_HISTORY: 14
 };
 
-const NUM_COLUMNS = 14;
+const NUM_COLUMNS = 15;
 
 /**
  * Process incoming POST requests from the Discord bot
@@ -163,7 +164,8 @@ function handleThreadCreated(sheet, payload) {
       payload.is_engineering === true ? "TRUE" : "FALSE",
       payload.outside_business_hours === true ? "TRUE" : "FALSE",
       0,   // reopen_count
-      ""   // warning_message_id
+      "",  // warning_message_id
+      ""   // reopen_history
     ];
 
     // Append new row
@@ -290,13 +292,38 @@ function handleResolved(sheet, payload) {
       return { action: "skipped", reason: "thread_not_found" };
     }
 
-    // Update resolution data
     const resolutionDate = sanitizeString(payload.resolution_date, new Date().toISOString());
     const timeToResolution = sanitizeString(payload.time_to_resolution, "");
     const warningMessageId = sanitizeString(payload.warning_message_id, "");
 
-    sheet.getRange(rowIndex, COLS.RESOLUTION_DATE + 1).setValue(resolutionDate);
-    sheet.getRange(rowIndex, COLS.TIME_TO_RESOLUTION + 1).setValue(timeToResolution);
+    // Get current reopen count
+    let reopenCount = 0;
+    try {
+      reopenCount = parseInt(sheet.getRange(rowIndex, COLS.REOPEN_COUNT + 1).getValue()) || 0;
+    } catch (readError) {
+      logError(`Error reading reopen count: ${readError.message}`);
+    }
+
+    if (reopenCount === 0) {
+      // First resolution - update main columns
+      sheet.getRange(rowIndex, COLS.RESOLUTION_DATE + 1).setValue(resolutionDate);
+      sheet.getRange(rowIndex, COLS.TIME_TO_RESOLUTION + 1).setValue(timeToResolution);
+    } else {
+      // Subsequent resolution - only update reopen_history
+      // Append "(resolved in Xh)" to the last entry in reopen_history
+      let currentHistory = "";
+      try {
+        currentHistory = String(sheet.getRange(rowIndex, COLS.REOPEN_HISTORY + 1).getValue() || "");
+      } catch (readError) {
+        logError(`Error reading reopen history: ${readError.message}`);
+      }
+
+      // Append resolution time to the history
+      const updatedHistory = currentHistory + ` (resolved in ${timeToResolution})`;
+      sheet.getRange(rowIndex, COLS.REOPEN_HISTORY + 1).setValue(updatedHistory);
+    }
+
+    // Always update warning message ID
     sheet.getRange(rowIndex, COLS.WARNING_MESSAGE_ID + 1).setValue(warningMessageId);
 
     // Update tags if provided
@@ -304,8 +331,8 @@ function handleResolved(sheet, payload) {
       sheet.getRange(rowIndex, COLS.TYPE + 1).setValue(sanitizeString(payload.type, ""));
     }
 
-    logInfo(`Marked thread as resolved: ${threadId}`);
-    return { action: "resolved", row: rowIndex };
+    logInfo(`Marked thread as resolved: ${threadId} (reopen_count: ${reopenCount})`);
+    return { action: "resolved", row: rowIndex, is_reopen_resolution: reopenCount > 0 };
 
   } catch (error) {
     logError(`Error in handleResolved: ${error.message}`);
@@ -338,9 +365,25 @@ function handleReopened(sheet, payload) {
     const newCount = (parseInt(currentCount) || 0) + 1;
     sheet.getRange(rowIndex, COLS.REOPEN_COUNT + 1).setValue(newCount);
 
-    // Clear resolution data since it's reopened
-    sheet.getRange(rowIndex, COLS.RESOLUTION_DATE + 1).setValue("");
-    sheet.getRange(rowIndex, COLS.TIME_TO_RESOLUTION + 1).setValue("");
+    // Append reopen timestamp to reopen_history
+    // Format: "Jan 18 10:30 | Jan 20 14:00" (resolution time added when resolved again)
+    const reopenedAt = sanitizeString(payload.reopened_at, new Date().toISOString());
+    const formattedDate = formatDateForHistory(reopenedAt);
+
+    let currentHistory = "";
+    try {
+      currentHistory = String(sheet.getRange(rowIndex, COLS.REOPEN_HISTORY + 1).getValue() || "");
+    } catch (readError) {
+      logError(`Error reading reopen history: ${readError.message}`);
+    }
+
+    // Append new reopen entry
+    const newEntry = formattedDate;
+    const updatedHistory = currentHistory ? `${currentHistory} | ${newEntry}` : newEntry;
+    sheet.getRange(rowIndex, COLS.REOPEN_HISTORY + 1).setValue(updatedHistory);
+
+    // NOTE: We no longer clear resolution_date and time_to_resolution
+    // The original resolution time is preserved
 
     logInfo(`Reopened thread: ${threadId} (reopen count: ${newCount})`);
     return { action: "reopened", row: rowIndex, reopen_count: newCount };
@@ -348,6 +391,24 @@ function handleReopened(sheet, payload) {
   } catch (error) {
     logError(`Error in handleReopened: ${error.message}`);
     throw error;
+  }
+}
+
+/**
+ * Format date for reopen history (e.g., "Jan 18 10:30")
+ */
+function formatDateForHistory(isoDateString) {
+  try {
+    const date = new Date(isoDateString);
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const month = months[date.getMonth()];
+    const day = date.getDate();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${month} ${day} ${hours}:${minutes}`;
+  } catch (error) {
+    logError(`Error formatting date: ${error.message}`);
+    return isoDateString;
   }
 }
 
@@ -415,7 +476,8 @@ function setupSheet(ss) {
       "is_engineering",
       "outside_business_hours",
       "reopen_count",
-      "warning_message_id"
+      "warning_message_id",
+      "reopen_history"
     ];
 
     // Set headers
@@ -446,7 +508,8 @@ function setupSheet(ss) {
       11: 100,  // is_engineering
       12: 130,  // outside_business_hours
       13: 100,  // reopen_count
-      14: 150   // warning_message_id
+      14: 150,  // warning_message_id
+      15: 300   // reopen_history
     };
 
     for (const [col, width] of Object.entries(columnWidths)) {
