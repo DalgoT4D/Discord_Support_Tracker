@@ -362,17 +362,17 @@ The **Discord Support Tracker Bot** is an automated system that tracks all suppo
 | 8 | `time_to_resolution` | Total time to resolve | "2d 4h 15m" | ✅ Yes |
 | 9 | `resolution_date` | When marked resolved | "2026-02-06 14:45:00" | ✅ Yes |
 | 10 | `link` | Direct link to Discord thread | https://discord.com/... | ✅ Yes |
-| 11 | `is_engineering` | Is this an engineering issue? | TRUE / FALSE | ✅ Yes |
+| 11 | `team` | Team assignment based on tag | Engineering / Consulting / (empty) | ✅ Yes |
 | 12 | `outside_business_hours` | Created outside 9am-6pm IST? | TRUE / FALSE | ✅ Yes |
 | 13 | `reopen_count` | Times ticket was reopened | 0, 1, 2... | ✅ Yes |
 | 14 | `warning_message_id` | ID of the resolve warning message | 9876543210 | ✅ Yes |
 
 ### 6.2 Sample Data
 
-| thread_id | title | type | raised_by | date_created | first_responded_by | time_to_first_response | time_to_resolution | resolution_date | link | is_engineering | outside_business_hours | reopen_count | warning_message_id |
-|-----------|-------|------|-----------|--------------|-------------------|----------------------|-------------------|-----------------|------|----------------|----------------------|--------------|-------------------|
-| 111222333 | Dashboard not loading | Platform Issue | ngo_user#1234 | 2026-02-04 10:30:00 | support#5678 | 25m 10s | 1d 2h 30m | 2026-02-05 13:00:00 | https://... | TRUE | FALSE | 0 | 444555666 |
-| 222333444 | Need training session | Service Request | org_admin#4321 | 2026-02-04 20:15:00 | support#5678 | 13h 45m 0s | 2d 0h 0m | 2026-02-06 20:15:00 | https://... | FALSE | TRUE | 1 | 555666777 |
+| thread_id | title | type | raised_by | date_created | first_responded_by | time_to_first_response | time_to_resolution | resolution_date | link | team | outside_business_hours | reopen_count | warning_message_id |
+|-----------|-------|------|-----------|--------------|-------------------|----------------------|-------------------|-----------------|------|------|----------------------|--------------|-------------------|
+| 111222333 | Dashboard not loading | Platform Issue, Engineering | ngo_user#1234 | 2026-02-04 10:30:00 | support#5678 | 25m 10s | 1d 2h 30m | 2026-02-05 13:00:00 | https://... | Engineering | FALSE | 0 | 444555666 |
+| 222333444 | Need training session | Service Request, Consulting | org_admin#4321 | 2026-02-04 20:15:00 | support#5678 | 13h 45m 0s | 2d 0h 0m | 2026-02-06 20:15:00 | https://... | Consulting | TRUE | 1 | 555666777 |
 
 ### 6.3 Time Format Examples
 
@@ -403,7 +403,7 @@ The **Discord Support Tracker Bot** is an automated system that tracks all suppo
 
 | When This Happens... | These Columns Get Updated |
 |----------------------|---------------------------|
-| Thread created | `thread_id`, `title`, `type`, `raised_by`, `date_created`, `link`, `is_engineering`, `outside_business_hours` |
+| Thread created | `thread_id`, `title`, `type`, `raised_by`, `date_created`, `link`, `team`, `outside_business_hours` |
 | First response | `first_responded_by`, `time_to_first_response` |
 | Tags changed | `type` |
 | Title changed | `title` |
@@ -430,7 +430,7 @@ The **Discord Support Tracker Bot** is an automated system that tracks all suppo
 📋 Title: [Thread Title]
 👤 Raised by: [Username]
 ⏰ Waiting: 1 hour
-🏷️ Type: [Engineering Issue / Non-Engineering Issue]
+🏷️ Team: [Engineering / Consulting / Unassigned]
 🔗 Link: [Discord Thread Link]
 
 Please respond to this ticket as soon as possible.
@@ -480,13 +480,15 @@ Our support team will follow up shortly.
 
 **Note:** Business hours are only used to mark the `outside_business_hours` column. SLA alerts are sent regardless of business hours.
 
-### 9.2 Engineering Issue Classification
+### 9.2 Team Classification
 
-A ticket is marked as **Engineering Issue** (`is_engineering = TRUE`) if:
-- The first message does NOT mention specific consulting team members
+Team is assigned based on Discord forum tags:
 
-A ticket is marked as **Non-Engineering Issue** (`is_engineering = FALSE`) if:
-- The first message mentions Siddhant, Prateeksha, or other consulting team members
+| Tag | Team Value |
+|-----|------------|
+| Contains "Engineering" | `Engineering` |
+| Contains "Consulting" | `Consulting` |
+| Neither | (empty) |
 
 ### 9.3 First Response Rules
 

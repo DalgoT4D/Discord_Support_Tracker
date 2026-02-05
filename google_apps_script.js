@@ -25,7 +25,7 @@ const COLS = {
   TIME_TO_RESOLUTION: 7,
   RESOLUTION_DATE: 8,
   LINK: 9,
-  IS_ENGINEERING: 10,
+  TEAM: 10,
   OUTSIDE_BUSINESS_HOURS: 11,
   REOPEN_COUNT: 12,
   WARNING_MESSAGE_ID: 13,
@@ -161,7 +161,7 @@ function handleThreadCreated(sheet, payload) {
       "",  // time_to_resolution
       "",  // resolution_date
       sanitizeString(payload.thread_link, ""),
-      payload.is_engineering === true ? "TRUE" : "FALSE",
+      sanitizeString(payload.team, ""),
       payload.outside_business_hours === true ? "TRUE" : "FALSE",
       0,   // reopen_count
       "",  // warning_message_id
@@ -537,7 +537,7 @@ function setupSheet(ss) {
       "time_to_resolution",
       "resolution_date",
       "link",
-      "is_engineering",
+      "team",
       "outside_business_hours",
       "reopen_count",
       "warning_message_id",
@@ -569,7 +569,7 @@ function setupSheet(ss) {
       8: 120,   // time_to_resolution
       9: 150,   // resolution_date
       10: 200,  // link
-      11: 100,  // is_engineering
+      11: 100,  // team
       12: 130,  // outside_business_hours
       13: 100,  // reopen_count
       14: 150,  // warning_message_id
@@ -671,11 +671,11 @@ function testThreadCreation() {
     event_type: "thread_created",
     thread_id: "test_" + Date.now(),
     title: "Test Support Ticket",
-    type: "Platform Issue, Bug",
+    type: "Platform Issue, Bug, Engineering",
     raised_by: "testuser#1234",
     date_created: new Date().toISOString(),
     thread_link: "https://discord.com/channels/123/456",
-    is_engineering: true,
+    team: "Engineering",
     outside_business_hours: false
   };
 
@@ -693,7 +693,7 @@ function testFirstResponse() {
     title: "Test Thread for Response",
     raised_by: "creator#1234",
     date_created: new Date().toISOString(),
-    is_engineering: true,
+    team: "Engineering",
     outside_business_hours: false
   };
 
@@ -721,7 +721,7 @@ function testResolution() {
     title: "Test Thread for Resolution",
     raised_by: "creator#1234",
     date_created: new Date().toISOString(),
-    is_engineering: true,
+    team: "Consulting",
     outside_business_hours: false
   };
 
@@ -754,7 +754,7 @@ function testReopen() {
         title: "Test Thread for Reopen",
         raised_by: "creator#1234",
         date_created: new Date().toISOString(),
-        is_engineering: true,
+        team: "Engineering",
         outside_business_hours: false
       })
     }
@@ -808,7 +808,7 @@ function testMultipleReopens() {
         title: "Test Multiple Reopens",
         raised_by: "creator#1234",
         date_created: new Date().toISOString(),
-        is_engineering: true,
+        team: "Engineering",
         outside_business_hours: false
       })
     }

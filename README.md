@@ -12,7 +12,7 @@ Automated Discord bot that tracks support tickets in a forum channel and logs ev
 - **Reopen detection**: Tracks reopened tickets, edits warning message
 - **SLA alerts**: Sends alert if no response within 1 hour
 - **Business hours**: Flags tickets created outside 9am-6pm IST (Mon-Fri)
-- **Engineering classification**: Auto-classifies engineering vs consulting issues
+- **Team classification**: Auto-classifies team (Engineering/Consulting) based on tags
 
 ---
 
@@ -152,7 +152,7 @@ Connected to guild: Your Server Name
 | time_to_resolution | Time to resolve | "2d 4h 15m" |
 | resolution_date | When ticket was resolved | "2026-02-06 14:45:00" |
 | link | Direct link to Discord thread | https://discord.com/... |
-| is_engineering | Engineering vs consulting | TRUE / FALSE |
+| team | Team assignment based on tag | Engineering / Consulting / (empty) |
 | outside_business_hours | Created outside 9-6 IST Mon-Fri | TRUE / FALSE |
 | reopen_count | How many times reopened | 0, 1, 2... |
 | warning_message_id | ID of the resolved message | 9876543210 |
@@ -200,7 +200,7 @@ Our support team will follow up shortly.
 📋 Title: Dashboard not loading
 👤 Raised by: user#1234
 ⏰ Waiting: 1 hour
-🏷️ Type: Engineering Issue (Platform Issue)
+🏷️ Team: Engineering
 🔗 Link: Click to view
 
 Please respond to this ticket as soon as possible.
@@ -273,7 +273,7 @@ sudo journalctl -u discord-support-bot -f
 | Business Hours | 9:00 AM - 6:00 PM IST |
 | Business Days | Monday to Friday |
 | SLA Timeout | 1 hour (single alert per ticket) |
-| Engineering Issue | TRUE unless message mentions consulting team |
+| Team Assignment | Based on "Engineering" or "Consulting" tag |
 | First Response | Only counts non-creator, non-bot responses |
 
 ---

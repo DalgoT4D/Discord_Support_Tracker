@@ -64,14 +64,6 @@ def parse_int_list_env(name: str) -> list:
     return result
 
 
-def parse_string_list_env(name: str) -> list:
-    """Parse comma-separated string list from environment variable"""
-    value = os.getenv(name, "")
-    if not value:
-        return []
-    return [item.strip() for item in value.split(",") if item.strip()]
-
-
 # Configuration with validation
 try:
     DISCORD_TOKEN = get_env_var("DISCORD_TOKEN")
@@ -102,14 +94,14 @@ SLA_TIMEOUT_MINUTES = 60  # 1 hour
 # Tags that indicate a thread is resolved
 RESOLVED_TAGS = ["resolved"]
 
-# Consulting team Discord user IDs (for is_engineering detection)
-CONSULTING_USER_IDS = parse_string_list_env("CONSULTING_USER_IDS")
+# Team tags for categorization
+ENGINEERING_TAG = "engineering"
+CONSULTING_TAG = "consulting"
 
 # Print configuration for debugging
 logger.info(f"Support Channel ID: {SUPPORT_CHANNEL_ID}")
 logger.info(f"Webhook URL: {WEBHOOK_URL[:50]}...")
 logger.info(f"Alert Channel IDs: {ALERT_CHANNEL_IDS}")
-logger.info(f"Consulting User IDs: {CONSULTING_USER_IDS}")
 
 # Set up Discord client with necessary intents
 intents = discord.Intents.default()
@@ -215,15 +207,22 @@ def is_thread_resolved(tags) -> bool:
         return False
 
 
-def is_engineering_issue(message_content: str) -> bool:
-    """Check if ticket is engineering (True) or consulting (False)"""
+def get_team_from_tags(tags) -> str:
+    """Get team from tags - returns 'Engineering', 'Consulting', or empty string"""
     try:
-        if not message_content:
-            return True
-        return not any(user_id in message_content for user_id in CONSULTING_USER_IDS)
+        if not tags:
+            return ""
+        for tag in tags:
+            if hasattr(tag, 'name'):
+                tag_name = tag.name.lower()
+                if ENGINEERING_TAG in tag_name:
+                    return "Engineering"
+                elif CONSULTING_TAG in tag_name:
+                    return "Consulting"
+        return ""
     except Exception as e:
-        logger.error(f"Error checking engineering status: {e}")
-        return True
+        logger.error(f"Error getting team from tags: {e}")
+        return ""
 
 
 def get_thread_link(guild_id: int, thread_id: int) -> str:
@@ -260,7 +259,7 @@ async def send_to_webhook(data: dict, max_retries: int = 3) -> bool:
     return False
 
 
-async def send_sla_alert(thread_id: int, title: str, raised_by: str, is_engineering: bool, guild_id: int):
+async def send_sla_alert(thread_id: int, title: str, raised_by: str, team: str, guild_id: int):
     """Send SLA alert to configured alert channels"""
     try:
         # Check if thread still exists and hasn't been responded to
@@ -269,14 +268,14 @@ async def send_sla_alert(thread_id: int, title: str, raised_by: str, is_engineer
             return
 
         thread_link = get_thread_link(guild_id, thread_id)
-        issue_type = "Engineering Issue" if is_engineering else "Non-Engineering Issue"
+        team_display = team if team else "Unassigned"
 
         alert_message = (
             f"⚠️ **SLA ALERT: Ticket Awaiting Response**\n\n"
             f"📋 **Title:** {title}\n"
             f"👤 **Raised by:** {raised_by}\n"
             f"⏰ **Waiting:** 1 hour\n"
-            f"🏷️ **Type:** {issue_type}\n"
+            f"🏷️ **Team:** {team_display}\n"
             f"🔗 **Link:** [Click to view]({thread_link})\n\n"
             f"Please respond to this ticket as soon as possible."
         )
@@ -310,7 +309,7 @@ async def send_sla_alert(thread_id: int, title: str, raised_by: str, is_engineer
         logger.error(f"Unexpected error in send_sla_alert: {e}")
 
 
-async def schedule_sla_alert(thread_id: int, title: str, raised_by: str, is_engineering: bool, guild_id: int):
+async def schedule_sla_alert(thread_id: int, title: str, raised_by: str, team: str, guild_id: int):
     """Schedule an SLA alert after timeout period"""
     try:
         # Cancel any existing alert for this thread
@@ -321,7 +320,7 @@ async def schedule_sla_alert(thread_id: int, title: str, raised_by: str, is_engi
                 await asyncio.sleep(SLA_TIMEOUT_MINUTES * 60)
                 # Check if thread still hasn't been responded to
                 if thread_id not in responded_threads:
-                    await send_sla_alert(thread_id, title, raised_by, is_engineering, guild_id)
+                    await send_sla_alert(thread_id, title, raised_by, team, guild_id)
             except asyncio.CancelledError:
                 pass  # Task was cancelled (response received)
             except Exception as e:
@@ -426,12 +425,13 @@ async def on_thread_create(thread: discord.Thread):
         now = datetime.now(timezone.utc)
         thread_id = str(thread.id)
 
-        # Determine business hours and engineering status
-        outside_business = not is_business_hours()
-        is_eng = is_engineering_issue(message_content)
-
         # Get tags
-        tags_str = get_tags_string(getattr(thread, "applied_tags", None))
+        applied_tags = getattr(thread, "applied_tags", None)
+        tags_str = get_tags_string(applied_tags)
+
+        # Determine business hours and team from tags
+        outside_business = not is_business_hours()
+        team = get_team_from_tags(applied_tags)
 
         # Get guild ID safely
         guild_id = thread.guild.id if thread.guild else 0
@@ -445,7 +445,7 @@ async def on_thread_create(thread: discord.Thread):
             'raised_by': str(thread_starter) if thread_starter else "Unknown",
             'date_created': now.strftime("%Y-%m-%d %H:%M:%S"),
             'thread_link': get_thread_link(guild_id, thread.id) if guild_id else "",
-            'is_engineering': is_eng,
+            'team': team,
             'outside_business_hours': outside_business
         }
 
@@ -465,7 +465,7 @@ async def on_thread_create(thread: discord.Thread):
 
         # Schedule SLA alert
         raised_by = str(thread_starter) if thread_starter else "Unknown"
-        await schedule_sla_alert(thread.id, thread.name, raised_by, is_eng, guild_id)
+        await schedule_sla_alert(thread.id, thread.name, raised_by, team, guild_id)
 
     except Exception as e:
         logger.exception(f"Unexpected error in on_thread_create: {e}")

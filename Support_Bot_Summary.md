@@ -16,7 +16,7 @@
 | 8 | `time_to_resolution` | How long to resolve (e.g., "2d 4h") |
 | 9 | `resolution_date` | When ticket was resolved |
 | 10 | `link` | Direct link to Discord thread |
-| 11 | `is_engineering` | TRUE = Engineering issue, FALSE = Consulting |
+| 11 | `team` | Team assignment: "Engineering", "Consulting", or empty |
 | 12 | `outside_business_hours` | TRUE = Created outside 9am-6pm IST |
 | 13 | `reopen_count` | How many times ticket was reopened |
 | 14 | `warning_message_id` | Internal ID for the resolved message |
@@ -51,7 +51,7 @@
 | **Reopen count** | Tracks how many times a ticket was reopened |
 | **SLA alert** | If no one responds within 1 hour, bot alerts the team in specified channels |
 | **Business hours flag** | Marks if ticket was created outside 9am-6pm IST |
-| **Engineering flag** | Marks if it's an engineering issue or consulting request |
+| **Team assignment** | Assigns team (Engineering/Consulting) based on tags |
 
 ---
 
@@ -70,9 +70,13 @@ We will no longer monitor this thread. Please create a new thread for new issues
 
 **SLA Alert (sent to alert channels):**
 ```
-⚠️ SLA ALERT: Ticket "[Title]" has no response for 1 hour.
-Raised by: [user] | Type: Engineering/Non-Engineering
-Link: [thread link]
+⚠️ SLA ALERT: Ticket Awaiting Response
+
+📋 Title: [Title]
+👤 Raised by: [user]
+⏰ Waiting: 1 hour
+🏷️ Team: Engineering/Consulting/Unassigned
+🔗 Link: [thread link]
 ```
 
 ---
