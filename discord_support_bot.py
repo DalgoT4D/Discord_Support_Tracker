@@ -573,10 +573,12 @@ async def on_thread_update(before: discord.Thread, after: discord.Thread):
         # Check for tag changes
         if before_tags_str != after_tags_str:
             logger.info(f"Tags changed: '{before_tags_str}' → '{after_tags_str}'")
+            team = get_team_from_tags(after_tags)
             await send_to_webhook({
                 'event_type': 'tags_changed',
                 'thread_id': thread_id,
-                'type': after_tags_str
+                'type': after_tags_str,
+                'team': team
             })
 
         # Check for resolution
