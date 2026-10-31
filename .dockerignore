@@ -1,0 +1,6 @@
+.env
+.venv
+.git
+.qodo
+*.md
+__pycache__/
